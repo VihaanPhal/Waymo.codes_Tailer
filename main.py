@@ -96,7 +96,6 @@ def check_for_new_code():
         message = (
             f"<b>New Waymo Code!</b>\n\n"
             f"<code>{current_code}</code>\n\n"
-            f"<a href='https://waymo.codes/'>Open waymo.codes</a>"
         )
 
         if send_telegram_message(message):
