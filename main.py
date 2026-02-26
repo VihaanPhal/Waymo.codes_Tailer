@@ -19,9 +19,19 @@ WAYMO_URL = "https://waymo.codes/"
 POLL_INTERVAL = 1  # 2 minutes in seconds
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+TELEGRAM_BOT_TOKEN_2 = os.environ.get("TELEGRAM_BOT_TOKEN_2")
+TELEGRAM_CHAT_ID_2 = os.environ.get("TELEGRAM_CHAT_ID_2")
+TELEGRAM_BOT_TOKEN_3 = os.environ.get("TELEGRAM_BOT_TOKEN_3")
+TELEGRAM_CHAT_ID_3 = os.environ.get("TELEGRAM_CHAT_ID_3")
 
 # Track the last seen code to avoid duplicate notifications
 last_seen_code = None
+
+# Track bot start time for uptime calculation
+start_time = None
+
+# Track update offsets for each bot to avoid processing duplicate messages
+update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0}
 
 
 def fetch_current_code():
@@ -50,26 +60,148 @@ def fetch_current_code():
 
 
 def send_telegram_message(message):
-    """Send a message via Telegram bot"""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        logger.error("Telegram credentials not configured")
+    """Send a message via Telegram bot to all configured destinations"""
+    # Build list of configured destinations
+    destinations = []
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        destinations.append(("Primary", TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID))
+    if TELEGRAM_BOT_TOKEN_2 and TELEGRAM_CHAT_ID_2:
+        destinations.append(("Secondary", TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID_2))
+    if TELEGRAM_BOT_TOKEN_3 and TELEGRAM_CHAT_ID_3:
+        destinations.append(("Tertiary", TELEGRAM_BOT_TOKEN_3, TELEGRAM_CHAT_ID_3))
+
+    if not destinations:
+        logger.error("No Telegram credentials configured")
         return False
 
+    success_count = 0
+    for name, bot_token, chat_id in destinations:
+        try:
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": message,
+                "parse_mode": "HTML"
+            }
+            response = requests.post(url, json=payload, timeout=10)
+            response.raise_for_status()
+            logger.info(f"Telegram message sent successfully to {name}")
+            success_count += 1
+        except requests.RequestException as e:
+            logger.error(f"Error sending Telegram message to {name}: {e}")
+
+    return success_count > 0
+
+
+def get_telegram_updates(bot_name, bot_token, offset):
+    """Fetch new updates (incoming messages) for a bot"""
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+        params = {
+            "offset": offset,
+            "limit": 100,
+            "timeout": 0,  # Non-blocking
+            "allowed_updates": ["message"]
+        }
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("ok"):
+            return data.get("result", [])
+        return []
+    except requests.RequestException as e:
+        logger.error(f"Error fetching updates for {bot_name}: {e}")
+        return []
+
+
+def format_uptime(seconds):
+    """Format uptime in a human-readable way"""
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m {secs}s"
+    elif minutes > 0:
+        return f"{minutes}m {secs}s"
+    else:
+        return f"{secs}s"
+
+
+def handle_ping_command(bot_token, chat_id, message_id):
+    """Send a pong response with bot status"""
+    global start_time, last_seen_code
+
+    uptime = format_uptime(time.time() - start_time) if start_time else "Unknown"
+    code_display = last_seen_code if last_seen_code else "N/A"
+
+    status_message = (
+        f"<b>Pong!</b>\n\n"
+        f"<b>Status:</b> Active\n"
+        f"<b>Monitoring:</b> waymo.codes\n"
+        f"<b>Last code seen:</b> <code>{code_display}</code>\n"
+        f"<b>Uptime:</b> {uptime}\n"
+        f"<b>Poll interval:</b> {POLL_INTERVAL}s"
+    )
+
+    try:
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": message,
-            "parse_mode": "HTML"
+            "chat_id": chat_id,
+            "text": status_message,
+            "parse_mode": "HTML",
+            "reply_parameters": {"message_id": message_id}
         }
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
-        logger.info("Telegram message sent successfully")
-        return True
-
+        logger.info(f"Ping response sent to chat {chat_id}")
     except requests.RequestException as e:
-        logger.error(f"Error sending Telegram message: {e}")
-        return False
+        logger.error(f"Error sending ping response: {e}")
+
+
+def poll_for_commands():
+    """Poll all configured bots for incoming commands"""
+    global update_offsets
+
+    # Build list of bots to poll
+    bots = []
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        bots.append(("primary", TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID))
+    if TELEGRAM_BOT_TOKEN_2 and TELEGRAM_CHAT_ID_2:
+        bots.append(("secondary", TELEGRAM_BOT_TOKEN_2, TELEGRAM_CHAT_ID_2))
+    if TELEGRAM_BOT_TOKEN_3 and TELEGRAM_CHAT_ID_3:
+        bots.append(("tertiary", TELEGRAM_BOT_TOKEN_3, TELEGRAM_CHAT_ID_3))
+
+    for bot_name, bot_token, authorized_chat_id in bots:
+        updates = get_telegram_updates(bot_name, bot_token, update_offsets[bot_name])
+
+        for update in updates:
+            update_id = update.get("update_id", 0)
+            # Update offset to acknowledge this message
+            update_offsets[bot_name] = max(update_offsets[bot_name], update_id + 1)
+
+            message = update.get("message", {})
+            if not message:
+                continue
+
+            # Ignore messages from bots
+            from_user = message.get("from", {})
+            if from_user.get("is_bot", False):
+                continue
+
+            # Get message details
+            text = message.get("text", "").strip().lower()
+            chat_id = message.get("chat", {}).get("id")
+            message_id = message.get("message_id")
+
+            # Only respond to authorized chat
+            if str(chat_id) != str(authorized_chat_id):
+                logger.debug(f"Ignoring message from unauthorized chat: {chat_id}")
+                continue
+
+            # Handle ping command
+            if text == "ping":
+                logger.info(f"Received ping command from {bot_name}")
+                handle_ping_command(bot_token, chat_id, message_id)
 
 
 def check_for_new_code():
@@ -107,9 +239,12 @@ def check_for_new_code():
 
 def main():
     """Main loop to monitor for new codes"""
+    global start_time
+    start_time = time.time()
+
     logger.info("Starting Waymo Code Monitor")
 
-    # Validate configuration
+    # Validate configuration (primary destination is required)
     if not TELEGRAM_BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN environment variable not set")
         return
@@ -117,6 +252,14 @@ def main():
     if not TELEGRAM_CHAT_ID:
         logger.error("TELEGRAM_CHAT_ID environment variable not set")
         return
+
+    # Log configured destinations
+    dest_count = 1
+    if TELEGRAM_BOT_TOKEN_2 and TELEGRAM_CHAT_ID_2:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_3 and TELEGRAM_CHAT_ID_3:
+        dest_count += 1
+    logger.info(f"Configured {dest_count} Telegram destination(s)")
 
     logger.info(f"Polling every {POLL_INTERVAL} seconds")
 
@@ -126,6 +269,7 @@ def main():
     while True:
         try:
             check_for_new_code()
+            poll_for_commands()
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
 
