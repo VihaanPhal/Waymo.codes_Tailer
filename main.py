@@ -1,7 +1,9 @@
 import os
 import time
+import json
 import logging
 import requests
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
@@ -16,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 WAYMO_URL = "https://waymo.codes/"
-POLL_INTERVAL = 1  # 2 minutes in seconds
+POLL_INTERVAL = 1  # seconds
+CODE_HISTORY_FILE = "seen_codes.json"
+CODE_EXPIRY_HOURS = 24  # Remember codes for 24 hours
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 TELEGRAM_BOT_TOKEN_2 = os.environ.get("TELEGRAM_BOT_TOKEN_2")
@@ -28,14 +32,72 @@ TELEGRAM_CHAT_ID_4 = os.environ.get("TELEGRAM_CHAT_ID_4")
 TELEGRAM_BOT_TOKEN_5 = os.environ.get("TELEGRAM_BOT_TOKEN_5")
 TELEGRAM_CHAT_ID_5 = os.environ.get("TELEGRAM_CHAT_ID_5")
 
-# Track the last seen code to avoid duplicate notifications
+# Track the last seen code (for display purposes)
 last_seen_code = None
+
+# Track all seen codes with timestamps to avoid duplicate notifications
+seen_codes = {}
 
 # Track bot start time for uptime calculation
 start_time = None
 
 # Track update offsets for each bot to avoid processing duplicate messages
 update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0}
+
+
+def load_seen_codes():
+    """Load seen codes from JSON file"""
+    global seen_codes
+    try:
+        if os.path.exists(CODE_HISTORY_FILE):
+            with open(CODE_HISTORY_FILE, 'r') as f:
+                seen_codes = json.load(f)
+            logger.info(f"Loaded {len(seen_codes)} codes from history")
+    except Exception as e:
+        logger.error(f"Error loading seen codes: {e}")
+        seen_codes = {}
+
+
+def save_seen_codes():
+    """Save seen codes to JSON file"""
+    try:
+        with open(CODE_HISTORY_FILE, 'w') as f:
+            json.dump(seen_codes, f, indent=2)
+    except Exception as e:
+        logger.error(f"Error saving seen codes: {e}")
+
+
+def cleanup_old_codes():
+    """Remove codes older than CODE_EXPIRY_HOURS"""
+    global seen_codes
+    cutoff = datetime.now() - timedelta(hours=CODE_EXPIRY_HOURS)
+    cutoff_str = cutoff.isoformat()
+
+    old_count = len(seen_codes)
+    seen_codes = {code: ts for code, ts in seen_codes.items() if ts > cutoff_str}
+    removed = old_count - len(seen_codes)
+
+    if removed > 0:
+        logger.info(f"Cleaned up {removed} expired codes")
+        save_seen_codes()
+
+
+def is_code_seen(code):
+    """Check if a code has been seen within the expiry window"""
+    if code not in seen_codes:
+        return False
+
+    # Check if the code is still within the expiry window
+    code_time = datetime.fromisoformat(seen_codes[code])
+    expiry_time = code_time + timedelta(hours=CODE_EXPIRY_HOURS)
+    return datetime.now() < expiry_time
+
+
+def mark_code_seen(code):
+    """Mark a code as seen with current timestamp"""
+    seen_codes[code] = datetime.now().isoformat()
+    save_seen_codes()
+    logger.info(f"Code {code} added to history ({len(seen_codes)} codes tracked)")
 
 
 def fetch_current_code():
@@ -96,7 +158,16 @@ def send_telegram_message(message):
             logger.info(f"Telegram message sent successfully to {name}")
             success_count += 1
         except requests.RequestException as e:
-            logger.error(f"Error sending Telegram message to {name}: {e}")
+            # Try to extract detailed error from Telegram API response
+            error_detail = str(e)
+            try:
+                if hasattr(e, 'response') and e.response is not None:
+                    error_json = e.response.json()
+                    if 'description' in error_json:
+                        error_detail = error_json['description']
+            except:
+                pass
+            logger.error(f"Error sending Telegram message to {name}: {error_detail}")
 
     return success_count > 0
 
@@ -227,34 +298,37 @@ def check_for_new_code():
 
     current_code = result["code"]
 
-    if last_seen_code is None:
-        # First run - just store the code, don't notify
-        last_seen_code = current_code
-        logger.info(f"Initial code detected: {current_code}")
+    # Update last_seen_code for display purposes
+    last_seen_code = current_code
+
+    # Check if we've already seen this code recently
+    if is_code_seen(current_code):
+        logger.info(f"Duplicate code detected: {current_code} - message NOT sent (seen in last {CODE_EXPIRY_HOURS}h)")
         return
 
-    if current_code != last_seen_code:
-        # New code detected!
-        logger.info(f"New code detected: {current_code} (was: {last_seen_code})")
+    # Truly new code - not seen in the last 24 hours
+    logger.info(f"New code detected: {current_code} (not seen in last {CODE_EXPIRY_HOURS} hours)")
 
-        message = (
-            f"<b>New Waymo Code!</b>\n\n"
-            f"<code>{current_code}</code>\n\n"
-        )
+    message = (
+        f"<b>New Waymo Code!</b>\n\n"
+        f"<code>{current_code}</code>\n\n"
+    )
 
-        if send_telegram_message(message):
-            last_seen_code = current_code
-        # If message fails, we'll retry next poll
-    else:
-        logger.debug(f"No change - current code: {current_code}")
+    if send_telegram_message(message):
+        mark_code_seen(current_code)
+    # If message fails, we'll retry next poll
 
 
 def main():
     """Main loop to monitor for new codes"""
     global start_time
     start_time = time.time()
+    last_cleanup = time.time()
 
     logger.info("Starting Waymo Code Monitor")
+
+    # Load previously seen codes from file
+    load_seen_codes()
 
     # Validate configuration (primary destination is required)
     if not TELEGRAM_BOT_TOKEN:
@@ -278,6 +352,7 @@ def main():
     logger.info(f"Configured {dest_count} Telegram destination(s)")
 
     logger.info(f"Polling every {POLL_INTERVAL} seconds")
+    logger.info(f"Code history expiry: {CODE_EXPIRY_HOURS} hours")
 
     # Send startup notification
     send_telegram_message("Waymo Code Monitor started! Watching for new codes...")
@@ -286,6 +361,11 @@ def main():
         try:
             check_for_new_code()
             poll_for_commands()
+
+            # Cleanup old codes every hour
+            if time.time() - last_cleanup > 3600:
+                cleanup_old_codes()
+                last_cleanup = time.time()
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
 
