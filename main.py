@@ -31,6 +31,8 @@ TELEGRAM_BOT_TOKEN_4 = os.environ.get("TELEGRAM_BOT_TOKEN_4")
 TELEGRAM_CHAT_ID_4 = os.environ.get("TELEGRAM_CHAT_ID_4")
 TELEGRAM_BOT_TOKEN_5 = os.environ.get("TELEGRAM_BOT_TOKEN_5")
 TELEGRAM_CHAT_ID_5 = os.environ.get("TELEGRAM_CHAT_ID_5")
+TELEGRAM_BOT_TOKEN_6 = os.environ.get("TELEGRAM_BOT_TOKEN_6")
+TELEGRAM_CHAT_ID_6 = os.environ.get("TELEGRAM_CHAT_ID_6")
 
 # Track the last seen code (for display purposes)
 last_seen_code = None
@@ -42,7 +44,7 @@ seen_codes = {}
 start_time = None
 
 # Track update offsets for each bot to avoid processing duplicate messages
-update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0}
+update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0, "senary": 0}
 
 
 def load_seen_codes():
@@ -139,6 +141,8 @@ def send_telegram_message(message):
         destinations.append(("Quaternary", TELEGRAM_BOT_TOKEN_4, TELEGRAM_CHAT_ID_4))
     if TELEGRAM_BOT_TOKEN_5 and TELEGRAM_CHAT_ID_5:
         destinations.append(("Quinary", TELEGRAM_BOT_TOKEN_5, TELEGRAM_CHAT_ID_5))
+    if TELEGRAM_BOT_TOKEN_6 and TELEGRAM_CHAT_ID_6:
+        destinations.append(("Senary", TELEGRAM_BOT_TOKEN_6, TELEGRAM_CHAT_ID_6))
 
     if not destinations:
         logger.error("No Telegram credentials configured")
@@ -253,6 +257,8 @@ def poll_for_commands():
         bots.append(("quaternary", TELEGRAM_BOT_TOKEN_4, TELEGRAM_CHAT_ID_4))
     if TELEGRAM_BOT_TOKEN_5 and TELEGRAM_CHAT_ID_5:
         bots.append(("quinary", TELEGRAM_BOT_TOKEN_5, TELEGRAM_CHAT_ID_5))
+    if TELEGRAM_BOT_TOKEN_6 and TELEGRAM_CHAT_ID_6:
+        bots.append(("senary", TELEGRAM_BOT_TOKEN_6, TELEGRAM_CHAT_ID_6))
 
     for bot_name, bot_token, authorized_chat_id in bots:
         updates = get_telegram_updates(bot_name, bot_token, update_offsets[bot_name])
@@ -348,6 +354,8 @@ def main():
     if TELEGRAM_BOT_TOKEN_4 and TELEGRAM_CHAT_ID_4:
         dest_count += 1
     if TELEGRAM_BOT_TOKEN_5 and TELEGRAM_CHAT_ID_5:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_6 and TELEGRAM_CHAT_ID_6:
         dest_count += 1
     logger.info(f"Configured {dest_count} Telegram destination(s)")
 
