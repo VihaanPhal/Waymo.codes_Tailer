@@ -33,6 +33,16 @@ TELEGRAM_BOT_TOKEN_5 = os.environ.get("TELEGRAM_BOT_TOKEN_5")
 TELEGRAM_CHAT_ID_5 = os.environ.get("TELEGRAM_CHAT_ID_5")
 TELEGRAM_BOT_TOKEN_6 = os.environ.get("TELEGRAM_BOT_TOKEN_6")
 TELEGRAM_CHAT_ID_6 = os.environ.get("TELEGRAM_CHAT_ID_6")
+TELEGRAM_BOT_TOKEN_7 = os.environ.get("TELEGRAM_BOT_TOKEN_7")
+TELEGRAM_CHAT_ID_7 = os.environ.get("TELEGRAM_CHAT_ID_7")
+TELEGRAM_BOT_TOKEN_8 = os.environ.get("TELEGRAM_BOT_TOKEN_8")
+TELEGRAM_CHAT_ID_8 = os.environ.get("TELEGRAM_CHAT_ID_8")
+TELEGRAM_BOT_TOKEN_9 = os.environ.get("TELEGRAM_BOT_TOKEN_9")
+TELEGRAM_CHAT_ID_9 = os.environ.get("TELEGRAM_CHAT_ID_9")
+TELEGRAM_BOT_TOKEN_10 = os.environ.get("TELEGRAM_BOT_TOKEN_10")
+TELEGRAM_CHAT_ID_10 = os.environ.get("TELEGRAM_CHAT_ID_10")
+TELEGRAM_BOT_TOKEN_11 = os.environ.get("TELEGRAM_BOT_TOKEN_11")
+TELEGRAM_CHAT_ID_11 = os.environ.get("TELEGRAM_CHAT_ID_11")
 
 # Track the last seen code (for display purposes)
 last_seen_code = None
@@ -44,7 +54,7 @@ seen_codes = {}
 start_time = None
 
 # Track update offsets for each bot to avoid processing duplicate messages
-update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0, "senary": 0}
+update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0, "senary": 0, "septenary": 0, "octonary": 0, "nonary": 0, "denary": 0, "undenary": 0}
 
 
 def load_seen_codes():
@@ -143,6 +153,16 @@ def send_telegram_message(message):
         destinations.append(("Quinary", TELEGRAM_BOT_TOKEN_5, TELEGRAM_CHAT_ID_5))
     if TELEGRAM_BOT_TOKEN_6 and TELEGRAM_CHAT_ID_6:
         destinations.append(("Senary", TELEGRAM_BOT_TOKEN_6, TELEGRAM_CHAT_ID_6))
+    if TELEGRAM_BOT_TOKEN_7 and TELEGRAM_CHAT_ID_7:
+        destinations.append(("Septenary", TELEGRAM_BOT_TOKEN_7, TELEGRAM_CHAT_ID_7))
+    if TELEGRAM_BOT_TOKEN_8 and TELEGRAM_CHAT_ID_8:
+        destinations.append(("Octonary", TELEGRAM_BOT_TOKEN_8, TELEGRAM_CHAT_ID_8))
+    if TELEGRAM_BOT_TOKEN_9 and TELEGRAM_CHAT_ID_9:
+        destinations.append(("Nonary", TELEGRAM_BOT_TOKEN_9, TELEGRAM_CHAT_ID_9))
+    if TELEGRAM_BOT_TOKEN_10 and TELEGRAM_CHAT_ID_10:
+        destinations.append(("Denary", TELEGRAM_BOT_TOKEN_10, TELEGRAM_CHAT_ID_10))
+    if TELEGRAM_BOT_TOKEN_11 and TELEGRAM_CHAT_ID_11:
+        destinations.append(("Undenary", TELEGRAM_BOT_TOKEN_11, TELEGRAM_CHAT_ID_11))
 
     if not destinations:
         logger.error("No Telegram credentials configured")
@@ -259,6 +279,16 @@ def poll_for_commands():
         bots.append(("quinary", TELEGRAM_BOT_TOKEN_5, TELEGRAM_CHAT_ID_5))
     if TELEGRAM_BOT_TOKEN_6 and TELEGRAM_CHAT_ID_6:
         bots.append(("senary", TELEGRAM_BOT_TOKEN_6, TELEGRAM_CHAT_ID_6))
+    if TELEGRAM_BOT_TOKEN_7 and TELEGRAM_CHAT_ID_7:
+        bots.append(("septenary", TELEGRAM_BOT_TOKEN_7, TELEGRAM_CHAT_ID_7))
+    if TELEGRAM_BOT_TOKEN_8 and TELEGRAM_CHAT_ID_8:
+        bots.append(("octonary", TELEGRAM_BOT_TOKEN_8, TELEGRAM_CHAT_ID_8))
+    if TELEGRAM_BOT_TOKEN_9 and TELEGRAM_CHAT_ID_9:
+        bots.append(("nonary", TELEGRAM_BOT_TOKEN_9, TELEGRAM_CHAT_ID_9))
+    if TELEGRAM_BOT_TOKEN_10 and TELEGRAM_CHAT_ID_10:
+        bots.append(("denary", TELEGRAM_BOT_TOKEN_10, TELEGRAM_CHAT_ID_10))
+    if TELEGRAM_BOT_TOKEN_11 and TELEGRAM_CHAT_ID_11:
+        bots.append(("undenary", TELEGRAM_BOT_TOKEN_11, TELEGRAM_CHAT_ID_11))
 
     for bot_name, bot_token, authorized_chat_id in bots:
         updates = get_telegram_updates(bot_name, bot_token, update_offsets[bot_name])
@@ -356,6 +386,16 @@ def main():
     if TELEGRAM_BOT_TOKEN_5 and TELEGRAM_CHAT_ID_5:
         dest_count += 1
     if TELEGRAM_BOT_TOKEN_6 and TELEGRAM_CHAT_ID_6:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_7 and TELEGRAM_CHAT_ID_7:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_8 and TELEGRAM_CHAT_ID_8:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_9 and TELEGRAM_CHAT_ID_9:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_10 and TELEGRAM_CHAT_ID_10:
+        dest_count += 1
+    if TELEGRAM_BOT_TOKEN_11 and TELEGRAM_CHAT_ID_11:
         dest_count += 1
     logger.info(f"Configured {dest_count} Telegram destination(s)")
 
