@@ -45,6 +45,8 @@ TELEGRAM_BOT_TOKEN_11 = os.environ.get("TELEGRAM_BOT_TOKEN_11")
 TELEGRAM_CHAT_ID_11 = os.environ.get("TELEGRAM_CHAT_ID_11")
 TELEGRAM_BOT_TOKEN_12 = os.environ.get("TELEGRAM_BOT_TOKEN_12")
 TELEGRAM_CHAT_ID_12 = os.environ.get("TELEGRAM_CHAT_ID_12")
+TELEGRAM_BOT_TOKEN_13 = os.environ.get("TELEGRAM_BOT_TOKEN_13")
+TELEGRAM_CHAT_ID_13 = os.environ.get("TELEGRAM_CHAT_ID_13")
 
 # Track the last seen code (for display purposes)
 last_seen_code = None
@@ -56,7 +58,7 @@ seen_codes = {}
 start_time = None
 
 # Track update offsets for each bot to avoid processing duplicate messages
-update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0, "senary": 0, "septenary": 0, "octonary": 0, "nonary": 0, "denary": 0, "undenary": 0, "duodenary": 0}
+update_offsets = {"primary": 0, "secondary": 0, "tertiary": 0, "quaternary": 0, "quinary": 0, "senary": 0, "septenary": 0, "octonary": 0, "nonary": 0, "denary": 0, "undenary": 0, "duodenary": 0, "tredenary": 0}
 
 
 def load_seen_codes():
@@ -167,6 +169,8 @@ def send_telegram_message(message):
         destinations.append(("Undenary", TELEGRAM_BOT_TOKEN_11, TELEGRAM_CHAT_ID_11))
     if TELEGRAM_BOT_TOKEN_12 and TELEGRAM_CHAT_ID_12:
         destinations.append(("Duodenary", TELEGRAM_BOT_TOKEN_12, TELEGRAM_CHAT_ID_12))
+    if TELEGRAM_BOT_TOKEN_13 and TELEGRAM_CHAT_ID_13:
+        destinations.append(("Tredenary", TELEGRAM_BOT_TOKEN_13, TELEGRAM_CHAT_ID_13))
 
     if not destinations:
         logger.error("No Telegram credentials configured")
@@ -295,6 +299,8 @@ def poll_for_commands():
         bots.append(("undenary", TELEGRAM_BOT_TOKEN_11, TELEGRAM_CHAT_ID_11))
     if TELEGRAM_BOT_TOKEN_12 and TELEGRAM_CHAT_ID_12:
         bots.append(("duodenary", TELEGRAM_BOT_TOKEN_12, TELEGRAM_CHAT_ID_12))
+    if TELEGRAM_BOT_TOKEN_13 and TELEGRAM_CHAT_ID_13:
+        bots.append(("tredenary", TELEGRAM_BOT_TOKEN_13, TELEGRAM_CHAT_ID_13))
 
     for bot_name, bot_token, authorized_chat_id in bots:
         updates = get_telegram_updates(bot_name, bot_token, update_offsets[bot_name])
